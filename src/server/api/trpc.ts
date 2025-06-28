@@ -29,9 +29,35 @@ import { db } from "@/server/db";
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
 
+  let firebaseUser = null;
+  const authHeader = opts.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    try {
+      const { isFirebaseAdminInitialized } = await import('@/lib/firebase-admin');
+
+      if (isFirebaseAdminInitialized()) {
+        const { getAuth } = await import('firebase-admin/auth');
+        const adminAuth = getAuth();
+        const decodedToken = await adminAuth.verifyIdToken(token);
+        firebaseUser = {
+          id: decodedToken.uid,
+          email: decodedToken.email,
+          name: decodedToken.name || null,
+          image: decodedToken.picture || null,
+        };
+      } else {
+        console.warn('Firebase Admin SDK not initialized. Cannot verify Google authentication tokens.');
+      }
+    } catch (error) {
+      console.log("Firebase token verification failed:", error);
+    }
+  }
+
   return {
     db,
     session,
+    firebaseUser,
     ...opts,
   };
 };
@@ -121,13 +147,20 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
-    if (!ctx.session?.user) {
+    const hasNextAuthSession = !!ctx.session?.user;
+    const hasFirebaseUser = !!ctx.firebaseUser;
+
+    if (!hasNextAuthSession && !hasFirebaseUser) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
+
+    const user = ctx.firebaseUser || ctx.session?.user;
+
     return next({
       ctx: {
-        // infers the `session` as non-nullable
-        session: { ...ctx.session, user: ctx.session.user },
+        session: { ...ctx.session, user: ctx.session?.user },
+        firebaseUser: ctx.firebaseUser,
+        user,
       },
     });
   });

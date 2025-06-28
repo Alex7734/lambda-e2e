@@ -9,6 +9,7 @@ import SuperJSON from "superjson";
 
 import { type AppRouter } from "@/server/api/root";
 import { createQueryClient } from "./query-client";
+import { auth } from "@/lib/firebase";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
@@ -38,6 +39,28 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
+const customFetch = async (input: string | URL | Request, init?: RequestInit) => {
+  const currentUser = auth.currentUser;
+  let headers = init?.headers || {};
+
+  if (currentUser) {
+    try {
+      const token = await currentUser.getIdToken();
+      headers = {
+        ...headers,
+        'Authorization': `Bearer ${token}`,
+      };
+    } catch (error) {
+      console.error('Failed to get Firebase token:', error);
+    }
+  }
+
+  return fetch(input, {
+    ...init,
+    headers,
+  });
+};
+
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 
@@ -52,6 +75,7 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         httpBatchStreamLink({
           transformer: SuperJSON,
           url: getBaseUrl() + "/api/trpc",
+          fetch: customFetch,
           headers: () => {
             const headers = new Headers();
             headers.set("x-trpc-source", "nextjs-react");
@@ -76,3 +100,6 @@ function getBaseUrl() {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return `http://localhost:${process.env.PORT ?? 3000}`;
 }
+
+// Export the custom fetch for use in tRPC client
+export { customFetch };

@@ -25,6 +25,9 @@ next-env.d.ts
 .DS_Store
 *.pem
 
+# firebase
+lambda-e2e-firebase-adminsdk.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
