@@ -5,6 +5,7 @@ import { api } from "@/trpc/react";
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { track } from '@vercel/analytics';
 
 const VOTE_TYPES = [
     { id: 1, label: "Yes", color: "#10B981", value: 1, emoji: "✅" },
@@ -33,6 +34,7 @@ export function EncryptionDemo() {
             setShowExplanation(true);
             setVoteResults("");
             setDecryptedVoteCount(null);
+            track('vote_cast', { vote_value: voteValue });
         } catch (error) {
             console.error("Vote failed:", error);
         }
@@ -45,6 +47,7 @@ export function EncryptionDemo() {
             const result = await voteResultsMutation.mutateAsync({ encryptedVotes });
             setVoteResults(result.encryptedTotalVotes || "");
             setDecryptedVoteCount(null);
+            track('results_calculated');
         } catch (error) {
             console.error("Vote calculation failed:", error);
         }
@@ -56,6 +59,7 @@ export function EncryptionDemo() {
         try {
             const result = await decryptMutation.mutateAsync({ encryptedValue: voteResults });
             setDecryptedVoteCount(result.decryptedValue);
+            track('results_decrypted');
         } catch (error) {
             console.error("Vote decryption failed:", error);
         }

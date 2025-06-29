@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from '@/contexts/AuthContext';
+import { track } from '@vercel/analytics';
 
 interface AuthButtonsProps {
     className?: string;
@@ -11,22 +12,29 @@ export function AuthButtons({ className = "" }: AuthButtonsProps) {
 
     const handleGoogleSignIn = async () => {
         try {
+            track('auth_attempt', { provider: 'google' });
             await signInWithGoogle();
+            track('auth_success', { provider: 'google' });
         } catch (error) {
+            track('auth_error', { provider: 'google', error: error instanceof Error ? error.message : 'Unknown error' });
             console.error('Google sign in failed:', error);
         }
     };
 
     const handleDiscordSignIn = async () => {
         try {
+            track('auth_attempt', { provider: 'discord' });
             await signInWithDiscord();
+            track('auth_success', { provider: 'discord' });
         } catch (error) {
+            track('auth_error', { provider: 'discord', error: error instanceof Error ? error.message : 'Unknown error' });
             console.error('Discord sign in failed:', error);
         }
     };
 
     const handleSignOut = async () => {
         try {
+            track('auth_signout', { provider: provider || 'unknown' });
             await signOut();
         } catch (error) {
             console.error('Sign out failed:', error);
